@@ -10,32 +10,40 @@ app.get('/api/roblox/user/:username', async (req, res) => {
   try {
     const username = req.params.username;
     
-    // First API call - Get user ID (Updated API)
+    // First API call - Get user ID
     const userResponse = await axios.post(
       'https://users.roblox.com/v1/usernames/users',
       { usernames: [username], excludeBannedUsers: false },
       { headers: { 'Content-Type': 'application/json' } }
     );
-    
+
     // Check if user exists
     if (!userResponse.data || !userResponse.data.data.length) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     const userId = userResponse.data.data[0].id;
 
     // Second API call - Get detailed user info
     const profileResponse = await axios.get(`https://users.roblox.com/v1/users/${userId}`);
 
     // Third API call - Get user profile picture (PFP)
-    const pfpResponse = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
+    const pfpResponse = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
     
-    const pfpUrl = pfpResponse.data?.data?.[0]?.imageUrl || '';
+    // Fourth API call - Get friends count
+    const friendsResponse = await axios.get(`https://friends.roblox.com/v1/users/${userId}/friends/count`);
 
-    // Check if profile data exists
-    if (!profileResponse.data) {
-      return res.status(404).json({ error: 'Could not fetch user profile' });
-    }
+    // Fifth API call - Get followers count
+    const followersResponse = await axios.get(`https://friends.roblox.com/v1/users/${userId}/followers/count`);
+
+    // Sixth API call - Get following count
+    const followingResponse = await axios.get(`https://friends.roblox.com/v1/users/${userId}/followings/count`);
+
+    // Extract necessary data
+    const pfpUrl = pfpResponse.data?.data?.[0]?.imageUrl || '';
+    const friendsCount = friendsResponse.data?.count || 0;
+    const followersCount = followersResponse.data?.count || 0;
+    const followingCount = followingResponse.data?.count || 0;
 
     // Prepare user data
     const userData = {
@@ -45,7 +53,10 @@ app.get('/api/roblox/user/:username', async (req, res) => {
       description: profileResponse.data.description || '',
       created: profileResponse.data.created,
       isBanned: profileResponse.data.isBanned || false,
-      profilePicture: pfpUrl
+      profilePicture: pfpUrl,
+      friendsCount: friendsCount,
+      followersCount: followersCount,
+      followingCount: followingCount
     };
 
     res.json(userData);
